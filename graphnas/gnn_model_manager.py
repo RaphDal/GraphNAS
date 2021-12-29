@@ -23,7 +23,7 @@ def load(args, save_file=".npy"):
 
 def evaluate(output, labels, mask):
     _, indices = torch.max(output, dim=1)
-    correct = torch.sum(indices[mask] == labels[mask])
+    correct = torch.sum(indices[mask == 1] == labels[mask == 1])
     return correct.item() * 1.0 / mask.sum().item()
 
 

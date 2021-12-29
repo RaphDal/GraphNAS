@@ -93,7 +93,7 @@ class GeoCitationManager(CitationGNNManager):
             # forward
             logits = model(data.x, data.edge_index)
             logits = F.log_softmax(logits, 1)
-            loss = loss_fn(logits[data.train_mask], data.y[data.train_mask])
+            loss = loss_fn(logits[data.train_mask == 1], data.y[data.train_mask == 1])
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -109,7 +109,7 @@ class GeoCitationManager(CitationGNNManager):
             val_acc = evaluate(logits, data.y, data.val_mask)
             test_acc = evaluate(logits, data.y, data.test_mask)
 
-            loss = loss_fn(logits[data.val_mask], data.y[data.val_mask])
+            loss = loss_fn(logits[data.val_mask == 1], data.y[data.val_mask == 1])
             val_loss = loss.item()
             if val_loss < min_val_loss:  # and train_loss < min_train_loss
                 min_val_loss = val_loss
