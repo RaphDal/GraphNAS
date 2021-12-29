@@ -2,7 +2,9 @@ import torch
 import torch.nn.functional as F
 from torch.nn import Parameter
 from torch_geometric.nn.inits import glorot, zeros
-from torch_geometric.utils import remove_self_loops, add_self_loops, add_remaining_self_loops, softmax
+from torch_geometric.utils import remove_self_loops, add_self_loops, softmax
+from torch_geometric.utils.num_nodes import maybe_num_nodes
+
 from torch_scatter import scatter_add
 
 from graphnas_variants.macro_graphnas.pyg.message_passing import MessagePassing
@@ -71,8 +73,29 @@ class GeoLayer(MessagePassing):
                                      device=edge_index.device)
 
         fill_value = 1 if not improved else 2
-        edge_index, edge_weight = add_remaining_self_loops(
-            edge_index, edge_weight, fill_value, num_nodes)
+
+        num_nodes = maybe_num_nodes(edge_index, num_nodes)
+        row, col = edge_index
+
+        mask = row != col
+        inv_mask = ~mask
+        loop_weight = torch.full(
+            (num_nodes, ),
+            fill_value,
+            dtype=None if edge_weight is None else edge_weight.dtype,
+            device=edge_index.device)
+
+        if edge_weight is not None:
+            assert edge_weight.numel() == edge_index.size(1)
+            loop_weight[row[inv_mask]] = edge_weight[inv_mask].view(-1)
+            edge_weight = torch.cat([edge_weight[mask], loop_weight], dim=0)
+
+        loop_index = torch.arange(0,
+                                num_nodes,
+                                dtype=torch.long,
+                                device=row.device)
+        loop_index = loop_index.unsqueeze(0).repeat(2, 1)
+        edge_index = torch.cat([edge_index[:, mask], loop_index], dim=1)
 
         row, col = edge_index
         deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
